@@ -30,3 +30,17 @@ coverage
 *.tsbuildinfo
 
 .history
+
+
+# misc
+.DS_Store
+.env.local
+.env.development
+.env.development.local
+.env.test.local
+.env.production.local
+
+# build 
+vite.config.js
+analysis.html
+components.d.ts

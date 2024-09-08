@@ -26,8 +26,8 @@ import {
   IconMore,
   IconStop
 } from '@arco-design/web-vue/es/icon'
-import { useIndexedDB } from './utils/ChatDatabase'
-import { moonshot } from './request'
+import { useIndexedDB } from '../utils/ChatDatabase'
+import { moonshot } from '../request'
 
 function getRandomString() {
   const x = 2147483648

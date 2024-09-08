@@ -1,5 +1,4 @@
 import { createApp } from 'vue'
-import ChatBot from './ChatBot.vue'
 import App from './App.vue'
 import { createPinia } from 'pinia'
 // import ArcoVue from '@arco-design/web-vue'
