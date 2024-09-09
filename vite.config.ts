@@ -10,7 +10,6 @@ export const PROXY_API_PREFIX = '/cxyz/chat-llm-node'
 export const BASE_PROJECT_PREFIX = '/projects/chat-llm-vue'
 
 export default defineConfig({
-  base: BASE_PROJECT_PREFIX,
   plugins: [
     vue(),
     AutoImport({
@@ -31,6 +30,7 @@ export default defineConfig({
       open: true //如果存在本地服务端口，将在打包后自动展示
     })
   ],
+  base: BASE_PROJECT_PREFIX,
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src')
@@ -52,5 +52,10 @@ export default defineConfig({
         rewrite: (path) => path.replace(new RegExp(`^${PROXY_API_PREFIX}`), '')
       }
     }
+  },
+  build: {
+    outDir: 'dist',
+    assetsDir: 'assets',
+    emptyOutDir: true
   }
 })
