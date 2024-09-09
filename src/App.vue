@@ -690,6 +690,7 @@ initConversations()
     align-items: center;
     position: relative; // 添加相对定位
 
+
     &:hover:not(.active),
     &.active {
       background-color: var(--color-neutral-3);
@@ -702,11 +703,10 @@ initConversations()
     }
 
     &::after {
-      // 添加阴影效果
       content: '';
       position: absolute;
       top: 0;
-      right: 0;
+      right: 40px;
       bottom: 0;
       width: 30px; // 调整阴影宽度
       background: linear-gradient(to right, transparent, var(--color-neutral-3));
@@ -722,12 +722,14 @@ initConversations()
   }
 
   &-title {
+    position: relative;
     flex: 1;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    margin-right: 8px; // 为菜单图标留出空间
+    margin-right: 4px;
   }
+
 
   &-menu-trigger {
     opacity: 0;
@@ -735,10 +737,12 @@ initConversations()
     padding: 4px;
     border-radius: 4px;
     z-index: 1; // 确保在阴影之上
+    font-size: 18px;
+    color: var(--color-text-3);
 
     &:hover {
       background-color: var(--color-fill-3);
-      color: var(--color-primary); // 悬浮时高亮颜色
+      color: var(--color-text-1); // 悬浮时高亮颜色
     }
   }
 
