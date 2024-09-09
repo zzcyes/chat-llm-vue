@@ -1,4 +1,4 @@
-# vue-chat-llm
+# chat-llm-vue
 
 [简体中文](./README.zh.md)
 
