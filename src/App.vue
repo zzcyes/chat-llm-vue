@@ -26,11 +26,12 @@ import {
   IconMore,
   IconStop,
   IconMoon,
-  IconSun
+  IconSun,
 } from '@arco-design/web-vue/es/icon'
 import { useIndexedDB } from './utils/ChatDatabase'
 import { moonshot } from './request'
 import { useThemeStore } from './stores/themeStore'
+import SettingsModal from './components/SettingsModal.vue';
 
 function getRandomString() {
   const x = 2147483648
@@ -79,6 +80,7 @@ const searchQuery = ref('')
 const isLoading = ref(false)
 const isEditingTitle = ref(false)
 const developerType = ref('simulate')
+const settingsModal = ref(null);
 
 
 const currentConversation = computed(() =>
@@ -331,6 +333,12 @@ const systemMenuOptions = ref([
     label: '清空数据',
     icon: IconDelete,
     danger: true
+  },
+  {
+    key: 'settings',
+    label: '设置',
+    icon: IconSettings,
+    danger: false
   }
   // 可以在这里添加更多系统菜单选项
 ])
@@ -345,6 +353,9 @@ const handleSystemMenuClick = (key: string) => {
         onOk: clearAllData
       })
       break
+    case 'settings':
+      openSettings()
+      break;
     // 可以在这里添加更多菜单项的处理逻辑
     default:
       console.warn(`未处理的菜单项: ${key}`)
@@ -359,7 +370,7 @@ const clearAllData = async () => {
     currentConversationId.value = null
     Message.success('所有数据已清空')
   } catch (error) {
-    console.error('清空数据时出错', error)
+    console.error('清空据时出错', error)
     Message.error('清空数据失败')
   }
 }
@@ -408,6 +419,12 @@ const handleConversationMenuClick = (key: string, convId: number) => {
 
 // 使用 Pinia store
 const themeStore = useThemeStore()
+
+const openSettings = () => {
+  if (settingsModal.value) {
+    (settingsModal.value as { isOpen: boolean }).isOpen = true;
+  }
+};
 
 initConversations()
 </script>
@@ -471,8 +488,7 @@ initConversations()
             <Dropdown @select="handleDeveloperClick">
               <div class="developer-type-selector">
                 <span>
-                  {{ developerOptions.find((option: { value: string, name: string }) => option.value ===
-    developerType)?.name }}
+                  {{ developerOptions.find((option) => option.value === developerType)?.name }}
                 </span>
                 <IconDown />
               </div>
@@ -558,6 +574,7 @@ initConversations()
         </div>
       </div>
     </Layout>
+    <SettingsModal ref="settingsModal" />
   </Layout>
 </template>
 
