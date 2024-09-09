@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, nextTick } from 'vue'
 import MarkdownIt from 'markdown-it'
-import Mock from 'mockjs'
 import {
   Layout,
   Button,
@@ -24,10 +23,15 @@ import {
   IconDown,
   IconDelete,
   IconMore,
-  IconStop
+  IconStop,
+  IconMoon,
+  IconSun,
 } from '@arco-design/web-vue/es/icon'
 import { useIndexedDB } from '../utils/ChatDatabase'
-import { moonshot } from '../request'
+import { localMock, moonshotAi, moonshotAiStream } from '../servers'
+import { useThemeStore } from '../stores/themeStore'
+import SettingsModal from '../components/SettingsModal.vue';
+
 
 function getRandomString() {
   const x = 2147483648
@@ -41,7 +45,7 @@ function getRandomString() {
 const md = new MarkdownIt()
 
 interface ChatMessage {
-  role: 'user' | "assistant"
+  role: 'user' | 'assistant'
   content: string
   position?: 'left' | 'right'
   type?: 'text' | 'markdown' | 'code'
@@ -60,12 +64,18 @@ const { getAll, add, update, getById, clearAll, remove } = useIndexedDB()
 
 const developerOptions = [
   {
-    name: 'Moonshot',
-    value: 'moonshot'
-  }, {
-    name: 'Simulate',
-    value: 'simulate'
-  }]
+    name: "Local Mock",
+    value: "local-mock"
+  },
+  {
+    name: "Moonshot Ai Stream",
+    value: "moonshot-ai-stream"
+  },
+  {
+    name: "Moonshot Ai",
+    value: "moonshot-ai"
+  },
+]
 
 const conversations = ref<Conversation[]>([])
 const currentConversationId = ref<number | null>(null)
@@ -75,7 +85,8 @@ const userName = ref('Admin')
 const searchQuery = ref('')
 const isLoading = ref(false)
 const isEditingTitle = ref(false)
-const developerType = ref('simulate')
+const developerType = ref(developerOptions?.[0]?.value)
+const settingsModal = ref(null);
 
 
 const currentConversation = computed(() =>
@@ -135,26 +146,6 @@ const scrollToBottom = () => {
   })
 }
 
-const simulateBotResponse = async (): Promise<ChatMessage> => {
-  await new Promise(resolve => setTimeout(resolve, 1000))
-  const botResponse: ChatMessage = {
-    role: 'assistant',
-    content: Mock.mock(function () {
-      const type = Mock.Random.pick(['text', 'markdown', 'code'])
-      if (type === 'text') {
-        return Mock.Random.sentence(5, 20)
-      } else if (type === 'markdown') {
-        return `# ${Mock.Random.title()}\n\n${Mock.Random.paragraph()}\n\n- ${Mock.Random.word()}\n- ${Mock.Random.word()}\n- ${Mock.Random.word()}`
-      } else {
-        return `\`\`\`python\n${Mock.Random.sentence()}\nprint("${Mock.Random.word()}")\n\`\`\``
-      }
-    }),
-    position: "left",
-    type: "text"
-  }
-  return botResponse;
-}
-
 
 const formatPrevMessage = (msgList: ChatMessage[]) => {
   return msgList.map((msg) => {
@@ -165,24 +156,72 @@ const formatPrevMessage = (msgList: ChatMessage[]) => {
   })
 }
 
+const streamingMessage = ref('')
+const isStreaming = ref(false)
+
 async function handleSend(message: ChatMessage) {
+  if (!currentConversation.value) {
+    throw new Error("当前对话不存在")
+  }
+  console.debug("handleSend:message", message)
+  const postValue = formatPrevMessage([...currentConversation.value.messages, message]);
+
   try {
-    if (!currentConversation.value) {
-      throw new Error("当前对话不存在")
+    let botResponse: ChatMessage;
+    let stream;
+    let aiResponse;
+    let mockResponse;
+
+    switch (developerType.value) {
+      case 'moonshot-ai-stream':
+        stream = await moonshotAiStream(postValue);
+        isStreaming.value = true;
+        streamingMessage.value = '';
+
+        for await (const chunk of stream) {
+          if (chunk.choices[0]?.delta?.content) {
+            streamingMessage.value += chunk.choices[0].delta.content;
+            scrollToBottom();
+          }
+        }
+
+        botResponse = {
+          role: 'assistant',
+          content: streamingMessage.value,
+          position: "left",
+          type: "text"
+        };
+        break;
+
+      case 'moonshot-ai':
+        aiResponse = await moonshotAi(postValue);
+        botResponse = {
+          role: 'assistant',
+          content: aiResponse.content!,
+          position: "left",
+          type: "text"
+        };
+        break;
+
+      case 'local-mock':
+        mockResponse = await localMock();
+        botResponse = {
+          role: 'assistant',
+          content: mockResponse.content,
+          position: "left",
+          type: "text"
+        };
+        break;
+
+      default:
+        throw new Error("未知的开发者选项");
     }
-    console.debug("handleSend", message)
-    // eslint-disable-next-line no-unsafe-optional-chaining
-    const postValue = formatPrevMessage([...currentConversation?.value?.messages!, message]);
-    const res = await moonshot(postValue);
-    const botResponse: ChatMessage = {
-      role: res.role,
-      content: res.content ?? "",
-      position: "left",
-      type: "text"
-    }
+
     return botResponse;
   } catch (e) {
     throw new Error(e?.toString?.() ?? "未知错误");
+  } finally {
+    isStreaming.value = false;
   }
 }
 
@@ -225,26 +264,18 @@ const sendMessage = async () => {
 
   try {
     console.debug("developerType", developerType.value)
-    const botResponse = developerType.value === 'moonshot' ?
-      await handleSend(newMessage) :
-      await simulateBotResponse()
+    const botResponse = await handleSend(newMessage);
     currentConv.messages.push(botResponse)
     if (currentConv.id) {
       await update(currentConv.id, {
         messages: currentConv.messages
       })
     }
+    streamingMessage.value = ''; // 清空流式消息
     scrollToBottom()
   } catch (error) {
     console.error('生成回复时出错', error)
-    currentConv.messages.push({
-      _id: "m_" + getRandomString(),
-      role: 'assistant',
-      content: error?.toString?.() ?? "似乎出了点问题...",
-      position: "left",
-      type: 'text',
-      error: true
-    })
+    Message.error(error?.toString?.() ?? "似乎出了点问题...")
   } finally {
     isLoading.value = false
     scrollToBottom()
@@ -311,7 +342,7 @@ const handleDeveloperClick = (type: string) => {
   developerType.value = type
   switch (type.toLowerCase()) {
     case 'moonshot':
-      Message.success(`选择了 https://api.moonshot.cn/v1 模型`)
+      Message.success(`选了 https://api.moonshot.cn/v1 模型`)
       break;
     case 'simulate':
       Message.success(`选择了 Mock.mock`)
@@ -328,6 +359,12 @@ const systemMenuOptions = ref([
     label: '清空数据',
     icon: IconDelete,
     danger: true
+  },
+  {
+    key: 'settings',
+    label: '设置',
+    icon: IconSettings,
+    danger: false
   }
   // 可以在这里添加更多系统菜单选项
 ])
@@ -342,6 +379,9 @@ const handleSystemMenuClick = (key: string) => {
         onOk: clearAllData
       })
       break
+    case 'settings':
+      openSettings()
+      break;
     // 可以在这里添加更多菜单项的处理逻辑
     default:
       console.warn(`未处理的菜单项: ${key}`)
@@ -356,8 +396,8 @@ const clearAllData = async () => {
     currentConversationId.value = null
     Message.success('所有数据已清空')
   } catch (error) {
-    console.error('清空数据时出错', error)
-    Message.error('清空数据失败')
+    console.error('清空据时出错', error)
+    Message.error('清空数失败')
   }
 }
 
@@ -403,11 +443,20 @@ const handleConversationMenuClick = (key: string, convId: number) => {
   }
 }
 
+// 使用 Pinia store
+const themeStore = useThemeStore()
+
+const openSettings = () => {
+  if (settingsModal.value) {
+    (settingsModal.value as { isOpen: boolean }).isOpen = true;
+  }
+};
+
 initConversations()
 </script>
 
 <template>
-  <Layout class="chat-container">
+  <Layout class="chat-container" :class="{ 'dark-mode': themeStore.isDarkMode }">
     <Layout.Sider v-if="!isCollapsed" :width="250" class="sidebar">
       <div class="panel panel-sidebar">
         <div class="panel-header">
@@ -465,7 +514,7 @@ initConversations()
             <Dropdown @select="handleDeveloperClick">
               <div class="developer-type-selector">
                 <span>
-                  {{ developerOptions.find(option => option.value === developerType)?.name }}
+                  {{ developerOptions.find((option) => option.value === developerType)?.name }}
                 </span>
                 <IconDown />
               </div>
@@ -484,6 +533,10 @@ initConversations()
               </div>
             </div>
             <div class="header-icons">
+              <Button shape="circle" @click="themeStore.toggleDarkMode" style="margin-right: 8px;">
+                <IconMoon v-if="!themeStore.isDarkMode" />
+                <IconSun v-else />
+              </Button>
               <Dropdown @select="handleSystemMenuClick">
                 <Button shape="circle" style="margin-left: 8px;">
                   <IconSettings />
@@ -506,21 +559,32 @@ initConversations()
             <p>输入内容并发送以开始新对话</p>
           </div>
           <div v-else class="chat-messages-body">
-            <div v-for="( message, index ) in  currentConversation?.messages " :key="index"
+            <div v-for="(message, index) in currentConversation?.messages" :key="index"
               :class="['message', `position-${message.position}`]">
               <div class="message-avatar" v-if="message.position === 'left'">
                 <Avatar :size="32">
                   <IconRobot />
                 </Avatar>
               </div>
-              <div :class="['message-content', message.error && 'error']">
+              <div class="message-content">
                 <div v-if="message.type === 'text'">{{ message.content }}</div>
                 <div v-else-if="message.type === 'markdown'" v-html="md.render(message.content)"></div>
                 <pre v-else-if="message.type === 'code'"><code v-html="md.render(message.content)"></code></pre>
               </div>
             </div>
-            <!-- 添加加载提示 -->
-            <div v-if="isLoading" class="message position-left" ref="loadingMessagesRef">
+            <!-- 添加流式响应消息 -->
+            <div v-if="isStreaming" class="message position-left">
+              <div class="message-avatar">
+                <Avatar :size="32">
+                  <IconRobot />
+                </Avatar>
+              </div>
+              <div class="message-content">
+                {{ streamingMessage }}
+              </div>
+            </div>
+            <!-- 加载提示仅在非流式响应时显示 -->
+            <div v-if="isLoading && !isStreaming" class="message position-left" ref="loadingMessagesRef">
               <div class="message-avatar">
                 <Avatar :size="32">
                   <IconRobot />
@@ -547,6 +611,7 @@ initConversations()
         </div>
       </div>
     </Layout>
+    <SettingsModal ref="settingsModal" />
   </Layout>
 </template>
 
@@ -556,6 +621,24 @@ initConversations()
   height: 100vh;
   display: flex;
   background-color: var(--color-bg-1);
+
+  &.dark-mode {
+    background-color: var(--color-bg-5);
+    color: var(--color-text-1);
+
+    .panel {
+      background-color: var(--color-bg-5);
+    }
+
+    .panel.panel-sidebar {
+      background-color: var(--color-bg-1);
+    }
+
+    .custom-input {
+      background-color: var(--color-fill-2);
+      color: var(--color-text-1);
+    }
+  }
 }
 
 .sidebar,
@@ -690,6 +773,7 @@ initConversations()
     align-items: center;
     position: relative; // 添加相对定位
 
+
     &:hover:not(.active),
     &.active {
       background-color: var(--color-neutral-3);
@@ -702,11 +786,10 @@ initConversations()
     }
 
     &::after {
-      // 添加阴影效果
       content: '';
       position: absolute;
       top: 0;
-      right: 0;
+      right: 40px;
       bottom: 0;
       width: 30px; // 调整阴影宽度
       background: linear-gradient(to right, transparent, var(--color-neutral-3));
@@ -722,12 +805,14 @@ initConversations()
   }
 
   &-title {
+    position: relative;
     flex: 1;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    margin-right: 8px; // 为菜单图标留出空间
+    margin-right: 4px;
   }
+
 
   &-menu-trigger {
     opacity: 0;
@@ -735,10 +820,12 @@ initConversations()
     padding: 4px;
     border-radius: 4px;
     z-index: 1; // 确保在阴影之上
+    font-size: 18px;
+    color: var(--color-text-3);
 
     &:hover {
       background-color: var(--color-fill-3);
-      color: var(--color-primary); // 悬浮时高亮颜色
+      color: var(--color-text-1); // 悬浮时高亮颜色
     }
   }
 

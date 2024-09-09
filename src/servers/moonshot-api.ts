@@ -8,7 +8,7 @@ const client = new OpenAI({
   baseURL: 'https://api.moonshot.cn/v1'
 })
 
-export const moonshot = async (messages: any) => {
+export const moonshotAi = async (messages: any) => {
   const completion = await client.chat.completions.create({
     model: 'moonshot-v1-8k',
     messages,
@@ -16,4 +16,14 @@ export const moonshot = async (messages: any) => {
   })
   console.debug('completion', completion)
   return completion.choices[0].message
+}
+
+export const moonshotAiStream = async (messages: any) => {
+  const stream = await client.chat.completions.create({
+    model: 'moonshot-v1-8k',
+    messages,
+    temperature: 0.3,
+    stream: true
+  })
+  return stream
 }
