@@ -1,6 +1,6 @@
 # chat-llm-vue
 
-[简体中文](./README.zh.md)
+English | [简体中文](./README.zh-CN.md)
 
 A Vue.js-based intelligent chatbot powered by LLM for real-time smart conversations.
 
