@@ -1,4 +1,4 @@
-# vue-chat-llm
+# chat-llm-vue
 
 一个基于 Vue.js 的智能聊天机器人，由 LLM 驱动，用于实时智能对话。
 
