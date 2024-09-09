@@ -24,10 +24,13 @@ import {
   IconDown,
   IconDelete,
   IconMore,
-  IconStop
+  IconStop,
+  IconMoon,
+  IconSun
 } from '@arco-design/web-vue/es/icon'
 import { useIndexedDB } from './utils/ChatDatabase'
 import { moonshot } from './request'
+import { useThemeStore } from './stores/themeStore'
 
 function getRandomString() {
   const x = 2147483648
@@ -311,7 +314,7 @@ const handleDeveloperClick = (type: string) => {
   developerType.value = type
   switch (type.toLowerCase()) {
     case 'moonshot':
-      Message.success(`选择了 https://api.moonshot.cn/v1 模型`)
+      Message.success(`选了 https://api.moonshot.cn/v1 模型`)
       break;
     case 'simulate':
       Message.success(`选择了 Mock.mock`)
@@ -403,11 +406,14 @@ const handleConversationMenuClick = (key: string, convId: number) => {
   }
 }
 
+// 使用 Pinia store
+const themeStore = useThemeStore()
+
 initConversations()
 </script>
 
 <template>
-  <Layout class="chat-container">
+  <Layout class="chat-container" :class="{ 'dark-mode': themeStore.isDarkMode }">
     <Layout.Sider v-if="!isCollapsed" :width="250" class="sidebar">
       <div class="panel panel-sidebar">
         <div class="panel-header">
@@ -465,7 +471,8 @@ initConversations()
             <Dropdown @select="handleDeveloperClick">
               <div class="developer-type-selector">
                 <span>
-                  {{ developerOptions.find(option => option.value === developerType)?.name }}
+                  {{ developerOptions.find((option: { value: string, name: string }) => option.value ===
+    developerType)?.name }}
                 </span>
                 <IconDown />
               </div>
@@ -484,6 +491,10 @@ initConversations()
               </div>
             </div>
             <div class="header-icons">
+              <Button shape="circle" @click="themeStore.toggleDarkMode" style="margin-right: 8px;">
+                <IconMoon v-if="!themeStore.isDarkMode" />
+                <IconSun v-else />
+              </Button>
               <Dropdown @select="handleSystemMenuClick">
                 <Button shape="circle" style="margin-left: 8px;">
                   <IconSettings />
@@ -556,6 +567,24 @@ initConversations()
   height: 100vh;
   display: flex;
   background-color: var(--color-bg-1);
+
+  &.dark-mode {
+    background-color: var(--color-bg-5);
+    color: var(--color-text-1);
+
+    .panel {
+      background-color: var(--color-bg-5);
+    }
+
+    .panel.panel-sidebar {
+      background-color: var(--color-bg-1);
+    }
+
+    .custom-input {
+      background-color: var(--color-fill-2);
+      color: var(--color-text-1);
+    }
+  }
 }
 
 .sidebar,
