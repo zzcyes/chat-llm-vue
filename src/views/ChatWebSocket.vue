@@ -87,6 +87,7 @@ const isLoading = ref(false)
 const isEditingTitle = ref(false)
 const developerType = ref(developerOptions?.[0]?.value)
 const settingsModal = ref(null);
+const inputRef = ref<HTMLInputElement | null>(null);
 
 
 const currentConversation = computed(() =>
@@ -279,6 +280,10 @@ const sendMessage = async () => {
   } finally {
     isLoading.value = false
     scrollToBottom()
+    // 将焦点重新放回输入框
+    nextTick(() => {
+      inputRef.value?.focus();
+    });
   }
 }
 
@@ -514,7 +519,7 @@ initConversations()
             <Dropdown @select="handleDeveloperClick">
               <div class="developer-type-selector">
                 <span>
-                  {{ developerOptions.find((option) => option.value === developerType)?.name }}
+                  {{ developerOptions.find((option: any) => option.value === developerType)?.name }}
                 </span>
                 <IconDown />
               </div>
@@ -599,8 +604,8 @@ initConversations()
 
         <div class="panel-footer input-wrapper">
           <div class="chat-input-body">
-            <input v-model="inputMessage" type="text" placeholder="输入您的问题，按回车发送" @keyup.enter="sendMessage"
-              :disabled="isLoading" class="custom-input" />
+            <input ref="inputRef" v-model="inputMessage" type="text" placeholder="输入您的问题，按回车发送"
+              @keyup.enter="sendMessage" :disabled="isLoading" class="custom-input" />
             <Button v-if="inputMessage.trim() && !isLoading" @click="sendMessage" shape="circle" class="send-button">
               <IconArrowUp />
             </Button>
