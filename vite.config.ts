@@ -6,7 +6,11 @@ import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
 import { ArcoResolver } from 'unplugin-vue-components/resolvers'
 
+export const PROXY_API_PREFIX = '/cxyz/chat-llm-node'
+export const BASE_PROJECT_PREFIX = '/projects/chat-llm-vue'
+
 export default defineConfig({
+  base: BASE_PROJECT_PREFIX,
   plugins: [
     vue(),
     AutoImport({
@@ -42,10 +46,10 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api': {
+      [PROXY_API_PREFIX]: {
         target: 'http://localhost:3003',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '')
+        rewrite: (path) => path.replace(new RegExp(`^${PROXY_API_PREFIX}`), '')
       }
     }
   }
